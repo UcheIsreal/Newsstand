@@ -27,7 +27,7 @@ function url(path: string, params?: Record<string, string | number | undefined>)
 }
 
 async function getJson<T>(path: string, params?: Record<string, string | number | undefined>): Promise<T> {
-  const response = await fetch(url(path, params), { next: { revalidate: 1800 } });
+  const response = await fetch(url(path, params), { cache: "no-store" });
 
   if (!response.ok) {
     throw new Error(`Newsstand API request failed: ${response.status}`);
