@@ -1,6 +1,10 @@
 import { Article, Source, Topic } from "@/lib/types";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL ||
+  (process.env.NODE_ENV === "production"
+    ? "https://newsstand-backend.onrender.com"
+    : "http://localhost:8000");
 
 type ArticleResponse = {
   articles: Article[];
