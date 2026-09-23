@@ -65,6 +65,13 @@ def upsert_articles(articles: list[dict]) -> int:
     if not articles:
         return 0
 
+    unique_articles = {
+        article["url"]: article
+        for article in articles
+        if article.get("url")
+    }
+    articles = list(unique_articles.values())
+
     if using_local_store():
         logger.info("Using local article store")
         return upsert(articles)
