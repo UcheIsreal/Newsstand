@@ -2,6 +2,9 @@ import type { MetadataRoute } from "next";
 import { getSitemapData } from "@/lib/api";
 import { SITE_URL } from "@/lib/constants";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 1800;
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const data = await getSitemapData().catch(() => ({
     articles: [],
