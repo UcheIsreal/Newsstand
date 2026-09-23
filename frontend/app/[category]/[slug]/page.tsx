@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import AdSlot from "@/components/AdSlot";
 import NewsCard from "@/components/NewsCard";
 import { getArticle } from "@/lib/api";
 import { CATEGORY_LABELS, SITE_URL } from "@/lib/constants";
+import { articleJsonLd, articleTakeaways, articleUrl, breadcrumbJsonLd, whyItMatters } from "@/lib/seo";
 
 type PageProps = {
   params: Promise<{
@@ -26,12 +28,33 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       alternates: {
         canonical: `${SITE_URL}${path}`
       },
+      keywords: article.topics || [],
+      robots: {
+        index: true,
+        follow: true,
+        googleBot: {
+          index: true,
+          follow: true,
+          "max-image-preview": "large",
+          "max-snippet": -1
+        }
+      },
       openGraph: {
         title: article.title,
         description: article.summary_100,
         url: `${SITE_URL}${path}`,
         type: "article",
-        images: article.image_url ? [{ url: article.image_url }] : undefined
+        images: article.image_url ? [{ url: article.image_url }] : undefined,
+        publishedTime: article.published_at,
+        modifiedTime: article.updated_at || article.published_at,
+        section: CATEGORY_LABELS[article.category] || article.category,
+        tags: article.topics
+      },
+      twitter: {
+        card: "summary_large_image",
+        title: article.title,
+        description: article.meta_description || article.summary_100,
+        images: article.image_url ? [article.image_url] : undefined
       }
     };
   } catch {
@@ -48,22 +71,16 @@ export default async function ArticlePage({ params }: PageProps) {
   }
 
   const published = article.published_at ? new Date(article.published_at).toLocaleString() : "Recently";
-
-  const jsonLd = {
-    "@context": "https://schema.org",
-    "@type": "NewsArticle",
-    headline: article.title,
-    description: article.summary_100,
-    datePublished: article.published_at,
-    dateModified: article.updated_at || article.published_at,
-    mainEntityOfPage: `${SITE_URL}/${article.category}/${article.slug}`,
-    image: article.image_url ? [article.image_url] : undefined,
-    publisher: {
-      "@type": "Organization",
-      name: "Newsstand"
-    },
-    isBasedOn: article.url
-  };
+  const categoryLabel = CATEGORY_LABELS[article.category] || article.category;
+  const takeaways = articleTakeaways(article);
+  const jsonLd = [
+    articleJsonLd(article),
+    breadcrumbJsonLd([
+      { name: "Newsstand", url: SITE_URL },
+      { name: categoryLabel, url: `${SITE_URL}/${article.category}` },
+      { name: article.title, url: articleUrl(article) }
+    ])
+  ];
 
   return (
     <main>
@@ -71,19 +88,26 @@ export default async function ArticlePage({ params }: PageProps) {
 
       <article className="mx-auto grid max-w-7xl gap-8 px-4 py-8 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div>
-          <a href={`/${article.category}`} className="text-sm font-extrabold uppercase tracking-[0.2em] text-signal">
-            {CATEGORY_LABELS[article.category] || article.category}
-          </a>
+          <nav className="flex flex-wrap items-center gap-2 text-sm font-bold text-ink/55" aria-label="Breadcrumb">
+            <Link href="/" className="hover:text-ocean">Newsstand</Link>
+            <span>/</span>
+            <Link href={`/${article.category}`} className="uppercase tracking-[0.16em] text-signal hover:text-ocean">
+              {categoryLabel}
+            </Link>
+          </nav>
+
           <h1 className="mt-4 max-w-4xl font-display text-4xl font-extrabold leading-tight tracking-normal text-ink md:text-6xl">
             {article.title}
           </h1>
 
           <div className="mt-5 flex flex-wrap items-center gap-2 text-sm font-semibold text-ink/55">
-            <a href={`/sources/${article.source_domain}`} className="text-ocean hover:underline">
+            <Link href={`/sources/${article.source_domain}`} className="text-ocean hover:underline">
               {article.source_name}
-            </a>
+            </Link>
             <span>/</span>
-            <time>{published}</time>
+            <time dateTime={article.published_at}>{published}</time>
+            <span>/</span>
+            <span>100-word brief</span>
           </div>
 
           {article.image_url ? (
@@ -93,8 +117,24 @@ export default async function ArticlePage({ params }: PageProps) {
           <AdSlot slot="article-top" className="mt-8" />
 
           <section className="mt-8 rounded-md border border-black/10 bg-white p-6">
-            <div className="text-sm font-extrabold uppercase tracking-[0.18em] text-ink/45">100-word brief</div>
+            <div className="text-sm font-extrabold uppercase tracking-[0.18em] text-ink/45">The short version</div>
             <p className="mt-4 text-xl font-normal leading-9 text-ink">{article.summary_100}</p>
+          </section>
+
+          <section className="mt-8 grid gap-5 md:grid-cols-2">
+            <div className="rounded-md border border-black/10 bg-white p-6">
+              <h2 className="font-display text-2xl font-bold text-ink">Why it matters</h2>
+              <p className="mt-3 leading-8 text-ink/70">{whyItMatters(article)}</p>
+            </div>
+
+            <div className="rounded-md border border-black/10 bg-white p-6">
+              <h2 className="font-display text-2xl font-bold text-ink">Key context</h2>
+              <ul className="mt-3 grid gap-3 text-ink/70">
+                {takeaways.map((takeaway) => (
+                  <li key={takeaway} className="leading-7">{takeaway}</li>
+                ))}
+              </ul>
+            </div>
           </section>
 
           <AdSlot slot="article-mid" className="mt-8" />
@@ -102,7 +142,7 @@ export default async function ArticlePage({ params }: PageProps) {
           <section className="mt-8 rounded-md border border-black/10 bg-white p-6">
             <h2 className="font-display text-2xl font-bold text-ink">Source attribution</h2>
             <p className="mt-3 leading-8 text-ink/70">
-              This Newsstand brief is based on reporting from {article.source_name}. Read the original story for full reporting, quotes, and publisher context.
+              This Newsstand page summarizes and points to reporting from {article.source_name}. The original publisher owns the full story, reporting, quotes, images, and any later updates.
             </p>
             <a
               href={article.url}
@@ -131,10 +171,19 @@ export default async function ArticlePage({ params }: PageProps) {
             <h2 className="font-display text-xl font-bold text-ink">Topics</h2>
             <div className="mt-4 flex flex-wrap gap-2">
               {(article.topics || []).map((topic) => (
-                <a key={topic} href={`/topics/${encodeURIComponent(topic)}`} className="rounded-md bg-paper px-3 py-2 text-sm font-semibold text-ink/70 hover:bg-mint">
+                <Link key={topic} href={`/topics/${encodeURIComponent(topic)}`} className="rounded-md bg-paper px-3 py-2 text-sm font-semibold text-ink/70 hover:bg-mint">
                   {topic}
-                </a>
+                </Link>
               ))}
+            </div>
+          </section>
+
+          <section className="rounded-md border border-black/10 bg-white p-5">
+            <h2 className="font-display text-xl font-bold text-ink">Explore More</h2>
+            <div className="mt-4 grid gap-2 text-sm font-semibold text-ink/70">
+              <Link href={`/${article.category}`} className="hover:text-ocean">More {categoryLabel.toLowerCase()} briefs</Link>
+              <Link href={`/sources/${article.source_domain}`} className="hover:text-ocean">More from {article.source_name}</Link>
+              <Link href="/topics" className="hover:text-ocean">Trending topics</Link>
             </div>
           </section>
         </aside>

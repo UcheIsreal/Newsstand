@@ -2,7 +2,8 @@ import Link from "next/link";
 import AdSlot from "@/components/AdSlot";
 import NewsCard from "@/components/NewsCard";
 import { getArticles, getTopics } from "@/lib/api";
-import { CATEGORIES } from "@/lib/constants";
+import { CATEGORIES, SITE_URL } from "@/lib/constants";
+import { collectionJsonLd, topicListJsonLd } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
@@ -13,9 +14,20 @@ export default async function HomePage() {
   ]);
   const lead = articles[0];
   const rest = articles.slice(1);
+  const jsonLd = [
+    collectionJsonLd(
+      "Newsstand 100-Word Global News Briefs",
+      "Concise source-attributed global news summaries from trusted RSS feeds.",
+      SITE_URL,
+      articles
+    ),
+    topicListJsonLd(topics)
+  ];
 
   return (
     <main>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+
       <section className="border-b border-black/10 bg-paper px-4 py-10">
         <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[1.5fr_0.75fr]">
           <div>
@@ -38,7 +50,7 @@ export default async function HomePage() {
       </section>
 
       <section className="mx-auto max-w-7xl px-4 py-8">
-        {lead ? <NewsCard article={lead} priority /> : <p>No articles yet. Trigger the backend fetch job to populate the newsstand.</p>}
+        {lead ? <NewsCard article={lead} priority /> : <p>Fresh briefs are loading from trusted RSS feeds. Please refresh shortly.</p>}
       </section>
 
       <section className="mx-auto grid max-w-7xl gap-8 px-4 lg:grid-cols-[1fr_320px]">

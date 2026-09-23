@@ -3,6 +3,7 @@ import Link from "next/link";
 import Script from "next/script";
 import CategoryNav from "@/components/CategoryNav";
 import { SITE_NAME, SITE_URL } from "@/lib/constants";
+import { organizationJsonLd, websiteJsonLd } from "@/lib/seo";
 import "./globals.css";
 
 const adsenseClient = process.env.NEXT_PUBLIC_ADSENSE_CLIENT;
@@ -15,6 +16,29 @@ export const metadata: Metadata = {
   },
   description:
     "Newsstand summarizes major global news into detailed 100-word briefs with source attribution and related coverage.",
+  keywords: [
+    "100-word news briefs",
+    "global news summaries",
+    "RSS news aggregator",
+    "news briefs",
+    "world news summaries",
+    "business news briefs",
+    "technology news summaries"
+  ],
+  alternates: {
+    canonical: SITE_URL
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-snippet": -1,
+      "max-image-preview": "large",
+      "max-video-preview": -1
+    }
+  },
   openGraph: {
     title: `${SITE_NAME} | Understand the world in 100 words`,
     description:
@@ -22,6 +46,11 @@ export const metadata: Metadata = {
     url: SITE_URL,
     siteName: SITE_NAME,
     type: "website"
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: `${SITE_NAME} | Understand the world in 100 words`,
+    description: "Concise source-attributed news briefs from trusted RSS feeds."
   }
 };
 
@@ -29,6 +58,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body className="min-h-screen font-sans antialiased">
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify([organizationJsonLd(), websiteJsonLd()]) }}
+        />
+
         {adsenseClient ? (
           <Script
             async
