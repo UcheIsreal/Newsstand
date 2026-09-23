@@ -13,8 +13,35 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 
+def supabase_key() -> str | None:
+    return (
+        os.getenv("SUPABASE_SERVICE_KEY")
+        or os.getenv("SUPABASE_SECRET_KEY")
+        or os.getenv("SUPABASE_KEY")
+    )
+
+
 def using_local_store() -> bool:
-    return not os.getenv("SUPABASE_URL") or not os.getenv("SUPABASE_SERVICE_KEY")
+    return not os.getenv("SUPABASE_URL") or not supabase_key()
+
+
+def get_local_articles(
+    category: str | None = None,
+    topic: str | None = None,
+    source: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
+    indexable_only: bool = True,
+) -> list[dict]:
+    articles = [
+        article for article in all_articles()
+        if article.get("status") == "published"
+        and (not indexable_only or article.get("indexable", False))
+        and (not category or article.get("category") == category)
+        and (not source or article.get("source_domain") == source)
+        and (not topic or topic in (article.get("topics") or []))
+    ]
+    return [normalize_article(article) for article in articles[offset : offset + limit]]
 
 
 def normalize_article(article: dict) -> dict:
@@ -30,7 +57,7 @@ def normalize_article(article: dict) -> dict:
 def get_client() -> Client:
     return create_client(
         os.environ["SUPABASE_URL"],
-        os.environ["SUPABASE_SERVICE_KEY"],
+        supabase_key() or "",
     )
 
 
@@ -42,15 +69,19 @@ def upsert_articles(articles: list[dict]) -> int:
         logger.info("Using local article store")
         return upsert(articles)
 
-    response = (
-        get_client()
-        .table("articles")
-        .upsert(articles, on_conflict="url")
-        .execute()
-    )
-    count = len(response.data) if response.data else 0
-    logger.info("Upserted %s articles", count)
-    return count
+    try:
+        response = (
+            get_client()
+            .table("articles")
+            .upsert(articles, on_conflict="url")
+            .execute()
+        )
+        count = len(response.data) if response.data else 0
+        logger.info("Upserted %s articles", count)
+        return count
+    except Exception:
+        logger.exception("Supabase upsert failed; falling back to local article store")
+        return upsert(articles)
 
 
 def get_articles(
@@ -62,63 +93,67 @@ def get_articles(
     indexable_only: bool = True,
 ) -> list[dict]:
     if using_local_store():
-        articles = [
-            article for article in all_articles()
-            if article.get("status") == "published"
-            and (not indexable_only or article.get("indexable", False))
-            and (not category or article.get("category") == category)
-            and (not source or article.get("source_domain") == source)
-            and (not topic or topic in (article.get("topics") or []))
-        ]
-        return [normalize_article(article) for article in articles[offset : offset + limit]]
+        return get_local_articles(category, topic, source, limit, offset, indexable_only)
 
-    query = (
-        get_client()
-        .table("articles")
-        .select("*")
-        .eq("status", "published")
-        .order("published_at", desc=True)
-        .limit(limit)
-        .offset(offset)
-    )
+    try:
+        query = (
+            get_client()
+            .table("articles")
+            .select("*")
+            .eq("status", "published")
+            .order("published_at", desc=True)
+            .limit(limit)
+            .offset(offset)
+        )
 
-    if indexable_only:
-        query = query.eq("indexable", True)
-    if category:
-        query = query.eq("category", category)
-    if source:
-        query = query.eq("source_domain", source)
-    if topic:
-        query = query.contains("topics", [topic])
+        if indexable_only:
+            query = query.eq("indexable", True)
+        if category:
+            query = query.eq("category", category)
+        if source:
+            query = query.eq("source_domain", source)
+        if topic:
+            query = query.contains("topics", [topic])
 
-    response = query.execute()
-    return [normalize_article(article) for article in (response.data or [])]
+        response = query.execute()
+        return [normalize_article(article) for article in (response.data or [])]
+    except Exception:
+        logger.exception("Supabase read failed; falling back to local article store")
+        return get_local_articles(category, topic, source, limit, offset, indexable_only)
 
 
 def get_article_by_slug(slug: str) -> dict | None:
     if using_local_store():
-        article = next(
-            (
-                article
-                for article in all_articles()
-                if article.get("slug") == slug and article.get("status") == "published"
-            ),
-            None,
-        )
-        return normalize_article(article) if article else None
+        return get_article_by_slug_from_local(slug)
 
-    response = (
-        get_client()
-        .table("articles")
-        .select("*")
-        .eq("slug", slug)
-        .eq("status", "published")
-        .limit(1)
-        .execute()
-    )
-    if response.data:
-        return normalize_article(response.data[0])
+    try:
+        response = (
+            get_client()
+            .table("articles")
+            .select("*")
+            .eq("slug", slug)
+            .eq("status", "published")
+            .limit(1)
+            .execute()
+        )
+        if response.data:
+            return normalize_article(response.data[0])
+    except Exception:
+        logger.exception("Supabase article lookup failed; falling back to local article store")
+        return get_article_by_slug_from_local(slug)
     return None
+
+
+def get_article_by_slug_from_local(slug: str) -> dict | None:
+    article = next(
+        (
+            article
+            for article in all_articles()
+            if article.get("slug") == slug and article.get("status") == "published"
+        ),
+        None,
+    )
+    return normalize_article(article) if article else None
 
 
 def get_related_articles(article: dict, limit: int = 6) -> list[dict]:
@@ -150,8 +185,18 @@ def get_related_articles(article: dict, limit: int = 6) -> list[dict]:
     elif category:
         query = query.eq("category", category)
 
-    response = query.execute()
-    return response.data or []
+    try:
+        response = query.execute()
+        return [normalize_article(item) for item in (response.data or [])]
+    except Exception:
+        logger.exception("Supabase related article lookup failed; falling back to local article store")
+        topics_set = set(topics)
+        candidates = [
+            item for item in get_local_articles(limit=500)
+            if item.get("id") != article.get("id")
+            and (item.get("category") == category or topics_set.intersection(item.get("topics") or []))
+        ]
+        return candidates[:limit]
 
 
 def get_distinct_sources() -> list[dict]:

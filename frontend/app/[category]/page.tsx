@@ -17,7 +17,7 @@ export async function generateMetadata({ params }: { params: Promise<{ category:
   if (!label) return {};
 
   return {
-    title: `${label} News in 50 Words`,
+    title: `${label} News in 100 Words`,
     description: `Latest ${label.toLowerCase()} news summarized into detailed 100-word briefs with source attribution.`
   };
 }
@@ -27,7 +27,7 @@ export default async function CategoryPage({ params }: { params: Promise<{ categ
   const label = CATEGORY_LABELS[category];
   if (!label) notFound();
 
-  const articles = await getArticles({ category, limit: 60 });
+  const articles = await getArticles({ category, limit: 60 }).catch(() => []);
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-8">

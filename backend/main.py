@@ -83,7 +83,7 @@ def health():
 
 
 @app.get("/articles")
-def list_articles(
+async def list_articles(
     category: str | None = Query(None),
     topic: str | None = Query(None),
     source: str | None = Query(None),
@@ -98,6 +98,15 @@ def list_articles(
             limit=limit,
             offset=offset,
         )
+        if not articles and offset == 0:
+            await run_fetch_job()
+            articles = get_articles(
+                category=category,
+                topic=topic,
+                source=source,
+                limit=limit,
+                offset=offset,
+            )
         return {"articles": articles, "count": len(articles)}
     except Exception as exc:
         logger.exception("Failed to list articles")
@@ -105,8 +114,12 @@ def list_articles(
 
 
 @app.get("/articles/{slug}")
-def article_detail(slug: str):
+async def article_detail(slug: str):
     article = get_article_by_slug(slug)
+    if not article:
+        await run_fetch_job()
+        article = get_article_by_slug(slug)
+
     if not article:
         raise HTTPException(status_code=404, detail="Article not found")
 
