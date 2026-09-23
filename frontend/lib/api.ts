@@ -16,6 +16,12 @@ type ArticleDetailResponse = {
   related: Article[];
 };
 
+type FetchOptions = RequestInit & {
+  next?: {
+    revalidate?: number;
+  };
+};
+
 function url(path: string, params?: Record<string, string | number | undefined>) {
   const target = new URL(path, API_URL);
   Object.entries(params || {}).forEach(([key, value]) => {
@@ -26,10 +32,19 @@ function url(path: string, params?: Record<string, string | number | undefined>)
   return target.toString();
 }
 
-async function getJson<T>(path: string, params?: Record<string, string | number | undefined>): Promise<T> {
-  const response = await fetch(url(path, params), { cache: "no-store" });
+async function getJson<T>(
+  path: string,
+  params?: Record<string, string | number | undefined>,
+  options: FetchOptions = { cache: "no-store" }
+): Promise<T> {
+  const requestUrl = url(path, params);
+  const response = await fetch(requestUrl, options).catch((error) => {
+    console.error("Newsstand API fetch failed", { requestUrl, error });
+    throw error;
+  });
 
   if (!response.ok) {
+    console.error("Newsstand API returned an error", { requestUrl, status: response.status });
     throw new Error(`Newsstand API request failed: ${response.status}`);
   }
 
@@ -67,5 +82,5 @@ export async function getSitemapData() {
     categories: string[];
     topics: Topic[];
     sources: Source[];
-  }>("/sitemap-data");
+  }>("/sitemap-data", undefined, { next: { revalidate: 1800 } });
 }
