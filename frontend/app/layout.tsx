@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import Script from "next/script";
 import CategoryNav from "@/components/CategoryNav";
@@ -28,6 +29,11 @@ export const metadata: Metadata = {
   ],
   alternates: {
     canonical: SITE_URL
+  },
+  icons: {
+    icon: "/favicon.png",
+    shortcut: "/favicon.png",
+    apple: "/favicon.png"
   },
   robots: {
     index: true,
@@ -95,8 +101,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <header className="border-b border-black/10 bg-paper">
           <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-5 md:flex-row md:items-end md:justify-between">
             <div>
-              <Link href="/" className="font-display text-3xl font-extrabold tracking-normal text-ink">
-                Newsstand
+              <Link href="/" className="block w-fit" aria-label="Newsstand home">
+                <Image
+                  src="/newsstand-logo.png"
+                  alt="Newsstand"
+                  width={260}
+                  height={164}
+                  priority
+                  className="h-auto w-44 md:w-52"
+                />
               </Link>
               <p className="mt-1 max-w-2xl text-sm text-ink/65">
                 Major world news, compressed into useful 100-word briefs with source attribution.
