@@ -132,19 +132,6 @@ const WEAK_TOPICS = new Set([
   "world"
 ]);
 
-function sentenceFrom(text: string | undefined) {
-  const cleaned = (text || "").replace(/\s+/g, " ").trim();
-  if (!cleaned) return "";
-  const sentence = cleaned.match(/[^.!?]+[.!?]/)?.[0] || cleaned;
-  return sentence.replace(/\s+/g, " ").trim();
-}
-
-function trimSentence(text: string, maxWords = 28) {
-  const words = text.split(/\s+/).filter(Boolean);
-  const trimmed = words.length > maxWords ? `${words.slice(0, maxWords).join(" ")}.` : text;
-  return /[.!?]$/.test(trimmed) ? trimmed : `${trimmed}.`;
-}
-
 export function cleanArticleTopics(article: Article, limit = 6) {
   return (article.topics || [])
     .map((topic) => topic.trim().toLowerCase())
@@ -158,25 +145,6 @@ export function cleanArticleTopics(article: Article, limit = 6) {
       );
     })
     .slice(0, limit);
-}
-
-export function articleTakeaways(article: Article) {
-  const category = CATEGORY_LABELS[article.category] || article.category;
-  const summarySentence = trimSentence(sentenceFrom(article.summary_100 || article.excerpt || article.title), 30);
-  const sourceLine = `${article.source_name} is the original source for the full report, including quotes, images, and later updates.`;
-  const categoryLine = `Newsstand is grouping this as a ${category.toLowerCase()} story so readers can follow related briefs in one place.`;
-
-  return [
-    summarySentence,
-    categoryLine,
-    sourceLine
-  ];
-}
-
-export function whyItMatters(article: Article) {
-  const category = CATEGORY_LABELS[article.category] || article.category;
-  const summarySentence = trimSentence(sentenceFrom(article.summary_100 || article.excerpt || article.title), 34);
-  return `This ${category.toLowerCase()} update matters because it gives readers the main development quickly: ${summarySentence} Newsstand keeps the summary short and source-attributed so you can understand the issue first, then open ${article.source_name} for the complete report.`;
 }
 
 export function organizationJsonLd() {

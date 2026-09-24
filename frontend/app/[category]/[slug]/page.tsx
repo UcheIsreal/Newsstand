@@ -5,7 +5,7 @@ import AdSlot from "@/components/AdSlot";
 import NewsCard from "@/components/NewsCard";
 import { getArticle } from "@/lib/api";
 import { CATEGORY_LABELS, SITE_URL } from "@/lib/constants";
-import { articleJsonLd, articleTakeaways, articleUrl, breadcrumbJsonLd, cleanArticleTopics, whyItMatters } from "@/lib/seo";
+import { articleJsonLd, articleUrl, breadcrumbJsonLd, cleanArticleTopics } from "@/lib/seo";
 
 type PageProps = {
   params: Promise<{
@@ -73,7 +73,6 @@ export default async function ArticlePage({ params }: PageProps) {
 
   const published = article.published_at ? new Date(article.published_at).toLocaleString() : "Recently";
   const categoryLabel = CATEGORY_LABELS[article.category] || article.category;
-  const takeaways = articleTakeaways(article);
   const topics = cleanArticleTopics(article);
   const jsonLd = [
     articleJsonLd(article),
@@ -121,22 +120,6 @@ export default async function ArticlePage({ params }: PageProps) {
           <section className="mt-8 rounded-md border border-black/10 bg-white p-6">
             <div className="text-sm font-extrabold uppercase tracking-[0.18em] text-ink/45">The short version</div>
             <p className="mt-4 text-xl font-normal leading-9 text-ink">{article.summary_100}</p>
-          </section>
-
-          <section className="mt-8 grid gap-5 md:grid-cols-2">
-            <div className="rounded-md border border-black/10 bg-white p-6">
-              <h2 className="font-display text-2xl font-bold text-ink">Why it matters</h2>
-              <p className="mt-3 leading-8 text-ink/70">{whyItMatters(article)}</p>
-            </div>
-
-            <div className="rounded-md border border-black/10 bg-white p-6">
-              <h2 className="font-display text-2xl font-bold text-ink">Key context</h2>
-              <ul className="mt-3 grid gap-3 text-ink/70">
-                {takeaways.map((takeaway) => (
-                  <li key={takeaway} className="leading-7">{takeaway}</li>
-                ))}
-              </ul>
-            </div>
           </section>
 
           <AdSlot slot="article-mid" className="mt-8" />
