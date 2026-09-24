@@ -5,7 +5,7 @@ import AdSlot from "@/components/AdSlot";
 import NewsCard from "@/components/NewsCard";
 import { getArticle } from "@/lib/api";
 import { CATEGORY_LABELS, SITE_URL } from "@/lib/constants";
-import { articleJsonLd, articleTakeaways, articleUrl, breadcrumbJsonLd, whyItMatters } from "@/lib/seo";
+import { articleJsonLd, articleTakeaways, articleUrl, breadcrumbJsonLd, cleanArticleTopics, whyItMatters } from "@/lib/seo";
 
 type PageProps = {
   params: Promise<{
@@ -21,6 +21,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     const { slug } = await params;
     const { article } = await getArticle(slug);
     const path = `/${article.category}/${article.slug}`;
+    const topics = cleanArticleTopics(article);
 
     return {
       title: article.seo_title || article.title,
@@ -28,7 +29,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       alternates: {
         canonical: `${SITE_URL}${path}`
       },
-      keywords: article.topics || [],
+      keywords: topics,
       robots: {
         index: true,
         follow: true,
@@ -48,7 +49,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
         publishedTime: article.published_at,
         modifiedTime: article.updated_at || article.published_at,
         section: CATEGORY_LABELS[article.category] || article.category,
-        tags: article.topics
+        tags: topics
       },
       twitter: {
         card: "summary_large_image",
@@ -73,6 +74,7 @@ export default async function ArticlePage({ params }: PageProps) {
   const published = article.published_at ? new Date(article.published_at).toLocaleString() : "Recently";
   const categoryLabel = CATEGORY_LABELS[article.category] || article.category;
   const takeaways = articleTakeaways(article);
+  const topics = cleanArticleTopics(article);
   const jsonLd = [
     articleJsonLd(article),
     breadcrumbJsonLd([
@@ -170,7 +172,7 @@ export default async function ArticlePage({ params }: PageProps) {
           <section className="rounded-md border border-black/10 bg-white p-5">
             <h2 className="font-display text-xl font-bold text-ink">Topics</h2>
             <div className="mt-4 flex flex-wrap gap-2">
-              {(article.topics || []).map((topic) => (
+              {topics.map((topic) => (
                 <Link key={topic} href={`/topics/${encodeURIComponent(topic)}`} className="rounded-md bg-paper px-3 py-2 text-sm font-semibold text-ink/70 hover:bg-mint">
                   {topic}
                 </Link>

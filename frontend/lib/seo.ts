@@ -105,7 +105,7 @@ export function articleUrl(article: Article) {
 export function uniqueTopics(articles: Article[], limit = 12) {
   const counts = new Map<string, number>();
   for (const article of articles) {
-    for (const topic of article.topics || []) counts.set(topic, (counts.get(topic) || 0) + 1);
+    for (const topic of cleanArticleTopics(article)) counts.set(topic, (counts.get(topic) || 0) + 1);
   }
   return [...counts.entries()]
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
@@ -113,25 +113,70 @@ export function uniqueTopics(articles: Article[], limit = 12) {
     .map(([topic, count]) => ({ topic, count }));
 }
 
+const WEAK_TOPICS = new Set([
+  "body",
+  "campaigners",
+  "dutch",
+  "here",
+  "image",
+  "images",
+  "news",
+  "said",
+  "says",
+  "source",
+  "story",
+  "the",
+  "this",
+  "today",
+  "video",
+  "world"
+]);
+
+function sentenceFrom(text: string | undefined) {
+  const cleaned = (text || "").replace(/\s+/g, " ").trim();
+  if (!cleaned) return "";
+  const sentence = cleaned.match(/[^.!?]+[.!?]/)?.[0] || cleaned;
+  return sentence.replace(/\s+/g, " ").trim();
+}
+
+function trimSentence(text: string, maxWords = 28) {
+  const words = text.split(/\s+/).filter(Boolean);
+  const trimmed = words.length > maxWords ? `${words.slice(0, maxWords).join(" ")}.` : text;
+  return /[.!?]$/.test(trimmed) ? trimmed : `${trimmed}.`;
+}
+
+export function cleanArticleTopics(article: Article, limit = 6) {
+  return (article.topics || [])
+    .map((topic) => topic.trim().toLowerCase())
+    .filter((topic) => {
+      return (
+        topic.length > 3 &&
+        !WEAK_TOPICS.has(topic) &&
+        !/^\d+$/.test(topic) &&
+        !topic.includes("&") &&
+        topic.split(/\s+/).length <= 3
+      );
+    })
+    .slice(0, limit);
+}
+
 export function articleTakeaways(article: Article) {
   const category = CATEGORY_LABELS[article.category] || article.category;
-  const topics = (article.topics || []).slice(0, 3);
+  const summarySentence = trimSentence(sentenceFrom(article.summary_100 || article.excerpt || article.title), 30);
+  const sourceLine = `${article.source_name} is the original source for the full report, including quotes, images, and later updates.`;
+  const categoryLine = `Newsstand is grouping this as a ${category.toLowerCase()} story so readers can follow related briefs in one place.`;
+
   return [
-    `This ${category.toLowerCase()} brief is based on reporting from ${article.source_name}.`,
-    topics.length
-      ? `The story connects to ${topics.join(", ")} and related coverage across Newsstand.`
-      : "The story is part of the latest source-attributed Newsstand coverage.",
-    "Read the original report for full quotes, local context, and any later updates from the publisher."
+    summarySentence,
+    categoryLine,
+    sourceLine
   ];
 }
 
 export function whyItMatters(article: Article) {
   const category = CATEGORY_LABELS[article.category] || article.category;
-  const topic = article.topics?.[0];
-  if (topic) {
-    return `This matters for readers tracking ${topic} because it adds a new source-attributed update to the broader ${category.toLowerCase()} conversation. Newsstand keeps the brief short, then points you to the original publisher for the full reporting.`;
-  }
-  return `This matters because it adds a fresh source-attributed update to the broader ${category.toLowerCase()} conversation. Newsstand keeps the brief short, then points you to the original publisher for the full reporting.`;
+  const summarySentence = trimSentence(sentenceFrom(article.summary_100 || article.excerpt || article.title), 34);
+  return `This ${category.toLowerCase()} update matters because it gives readers the main development quickly: ${summarySentence} Newsstand keeps the summary short and source-attributed so you can understand the issue first, then open ${article.source_name} for the complete report.`;
 }
 
 export function organizationJsonLd() {
@@ -169,7 +214,7 @@ export function articleJsonLd(article: Article) {
     mainEntityOfPage: articleUrl(article),
     image: article.image_url ? [article.image_url] : undefined,
     articleSection: CATEGORY_LABELS[article.category] || article.category,
-    keywords: (article.topics || []).join(", "),
+    keywords: cleanArticleTopics(article).join(", "),
     publisher: {
       "@type": "Organization",
       name: SITE_NAME,
