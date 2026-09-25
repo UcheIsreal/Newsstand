@@ -28,7 +28,7 @@ export const metadata: Metadata = {
     "technology news summaries"
   ],
   alternates: {
-    canonical: SITE_URL
+    canonical: `${SITE_URL}/`
   },
   icons: {
     icon: "/favicon.png",
